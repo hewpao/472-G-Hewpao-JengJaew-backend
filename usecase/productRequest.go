@@ -7,10 +7,11 @@ import (
 
 	"github.com/hewpao/hewpao-backend/domain"
 	"github.com/hewpao/hewpao-backend/repository"
+	"github.com/minio/minio-go/v7"
 )
 
 type ProductRequestUsecase interface {
-	CreateProductRequest(productRequest *domain.ProductRequest, file *multipart.FileHeader, reader io.Reader) error
+	CreateProductRequest(productRequest *domain.ProductRequest, files []*multipart.FileHeader, readers []io.Reader) error
 }
 
 type productRequestService struct {
@@ -27,13 +28,20 @@ func NewProductRequestService(repo repository.ProductRequestRepository, minioRep
 	}
 }
 
-func (pr *productRequestService) CreateProductRequest(productRequest *domain.ProductRequest, file *multipart.FileHeader, reader io.Reader) error {
-	uploadInfo, err := pr.minioRepo.UploadFile(pr.ctx, file.Filename, reader, file.Size, file.Header.Get("Content-Type"))
-	if err != nil {
-		return err
+func (pr *productRequestService) CreateProductRequest(productRequest *domain.ProductRequest, files []*multipart.FileHeader, readers []io.Reader) error {
+	uploadInfos := []minio.UploadInfo{}
+	for i, file := range files {
+		reader := readers[i] // Get the corresponding reader for this file
+
+		uploadInfo, err := pr.minioRepo.UploadFile(pr.ctx, file.Filename, reader, file.Size, file.Header.Get("Content-Type"))
+		if err != nil {
+			return err
+		}
+
+		uploadInfos = append(uploadInfos, uploadInfo)
 	}
 
-	err = pr.repo.Create(productRequest, uploadInfo)
+	err := pr.repo.Create(productRequest, uploadInfos)
 	if err != nil {
 		return err
 	}

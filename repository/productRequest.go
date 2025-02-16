@@ -6,5 +6,5 @@ import (
 )
 
 type ProductRequestRepository interface {
-	Create(productRequest *domain.ProductRequest, uploadInfo minio.UploadInfo) error
+	Create(productRequest *domain.ProductRequest, uploadInfos []minio.UploadInfo) error
 }

@@ -6,8 +6,8 @@ import (
 
 type Offer struct {
 	gorm.Model
-	ProductRequestID uint
-	ProductRequest   ProductRequest
-	UserID           uint
-	User             User
+	ProductRequestID *uint
+	ProductRequest   *ProductRequest
+	AccountID        *string
+	Account          *Account
 }

@@ -15,10 +15,14 @@ func NewProductRequestGormRepo(db *gorm.DB) repository.ProductRequestRepository 
 	return &ProductRequestGormRepo{db: db}
 }
 
-func (pr *ProductRequestGormRepo) Create(productRequest *domain.ProductRequest, uploadInfo minio.UploadInfo) error {
-	uri := uploadInfo.Bucket + "/" + uploadInfo.Key
+func (pr *ProductRequestGormRepo) Create(productRequest *domain.ProductRequest, uploadInfos []minio.UploadInfo) error {
+	uris := []string{}
 
-	productRequest.Image = uri
+	for _, uploadInfo := range uploadInfos {
+		uri := uploadInfo.Bucket + "/" + uploadInfo.Key
+		uris = append(uris, uri)
+	}
+	productRequest.Images = uris
 	result := pr.db.Create(&productRequest)
 	if result.Error != nil {
 		return result.Error

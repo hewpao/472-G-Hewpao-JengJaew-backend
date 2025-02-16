@@ -26,22 +26,32 @@ func NewProductRequestHandler(service usecase.ProductRequestUsecase) ProductRequ
 }
 
 func (pr *productRequestHandler) CreateProductRequest(c *fiber.Ctx) error {
-	fileHeader, err := c.FormFile("image")
+	fileHeaders, err := c.MultipartForm()
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	file, err := fileHeader.Open()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	files := fileHeaders.File["images"] // "images" should match the form field name for multiple file uploads
+	if len(files) == 0 {
+		return c.Status(fiber.StatusBadRequest).SendString("No files uploaded")
 	}
 
-	content, err := io.ReadAll(file)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	var fileReaders []io.Reader
+	for _, fileHeader := range files {
+		file, err := fileHeader.Open()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+		reader := bytes.NewReader(content)
+		fileReaders = append(fileReaders, reader)
+
+		defer file.Close()
 	}
-	reader := bytes.NewReader(content)
-	defer file.Close()
 
 	req := dto.CreateProductRequestDTO{}
 	err = c.BodyParser(&req)
@@ -61,9 +71,10 @@ func (pr *productRequestHandler) CreateProductRequest(c *fiber.Ctx) error {
 		Quantity: req.Quantity,
 		Category: req.Category,
 		Offers:   []domain.Offer{},
+		Images:   []string{},
 	}
 
-	err = pr.service.CreateProductRequest(&productRequest, fileHeader, reader)
+	err = pr.service.CreateProductRequest(&productRequest, files, fileReaders)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
