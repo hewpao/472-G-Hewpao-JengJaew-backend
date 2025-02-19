@@ -11,4 +11,6 @@ var (
 	ErrFileAlreadyExists = errors.New("file already exists")
 	ErrFileSizeLimit     = errors.New("file size limit exceeded")
 	ErrTypeConversion    = errors.New("could not convert variable type")
+	ErrFileIsNull        = errors.New("file could not be null")
+	ErrFileCountLimit    = errors.New("file count limit exceeded")
 )

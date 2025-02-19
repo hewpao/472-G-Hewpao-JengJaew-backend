@@ -8,6 +8,6 @@ type Offer struct {
 	gorm.Model
 	ProductRequestID *uint
 	ProductRequest   *ProductRequest
-	AccountID        *string
-	Account          *Account
+	UserID           *string
+	User             *User
 }

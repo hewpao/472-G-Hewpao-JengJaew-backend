@@ -15,7 +15,7 @@ type ProductRequest struct {
 	Quantity uint
 	Category types.Category `gorm:"type:varchar(20);default:'Other'"`
 
-	AccountID *string
-	Account   *Account
-	Offers    []Offer `gorm:"foreignKey:ProductRequestID"`
+	UserID *string
+	User   *User
+	Offers []Offer `gorm:"foreignKey:ProductRequestID"`
 }

@@ -15,4 +15,7 @@ type User struct {
 	CreatedAt   *time.Time
 	UpdatedAt   *time.Time
 	Accounts    []Account `gorm:"foreignKey:UserID"`
+
+	ProductRequests []ProductRequest `gorm:"foreignKey:UserID"`
+	Offers          []Offer          `gorm:"foreignKey:UserID"`
 }
