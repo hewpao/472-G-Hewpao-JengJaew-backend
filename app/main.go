@@ -58,7 +58,7 @@ func main() {
 	authRoute.Post("/login/oauth", authHandler.LoginWithOAuth)
 	authRoute.Post("/register", authHandler.Register)
 
-	productRequestRoute := app.Group("/productRequests")
+	productRequestRoute := app.Group("/product-requests")
 	productRequestRoute.Post("/", productRequestHandler.CreateProductRequest)
 
 	verifyRoute := app.Group("/verify")
