@@ -2,9 +2,8 @@ package repository
 
 import (
 	"github.com/hewpao/hewpao-backend/domain"
-	"github.com/minio/minio-go/v7"
 )
 
 type ProductRequestRepository interface {
-	Create(productRequest *domain.ProductRequest, uploadInfos []minio.UploadInfo) error
+	Create(productRequest *domain.ProductRequest) error
 }

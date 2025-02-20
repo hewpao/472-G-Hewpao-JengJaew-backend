@@ -13,4 +13,6 @@ var (
 	ErrTypeConversion    = errors.New("could not convert variable type")
 	ErrFileIsNull        = errors.New("file could not be null")
 	ErrFileCountLimit    = errors.New("file count limit exceeded")
+
+	ErrPermissionDenied = errors.New("no permssion")
 )

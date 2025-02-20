@@ -1,8 +1,7 @@
 package rest
 
 import (
-	"bytes"
-	"io"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hewpao/hewpao-backend/domain"
@@ -31,29 +30,12 @@ func (pr *productRequestHandler) CreateProductRequest(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	files := fileHeaders.File["images"] // "images" should match the form field name for multiple file uploads
-	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).SendString("No files uploaded")
+	fileReaders, files, err := util.FileManage(fileHeaders, "images", 15)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
-	var fileReaders []io.Reader
-	for _, fileHeader := range files {
-		file, err := fileHeader.Open()
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-		}
-
-		content, err := io.ReadAll(file)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-		}
-		reader := bytes.NewReader(content)
-		fileReaders = append(fileReaders, reader)
-
-		defer file.Close()
-	}
-
-	req := dto.CreateProductRequestDTO{}
+	req := dto.CreateProductRequestRequestDTO{}
 	err = c.BodyParser(&req)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -79,8 +61,30 @@ func (pr *productRequestHandler) CreateProductRequest(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 
+	var deletedAt *time.Time
+	if productRequest.DeletedAt.Valid {
+		deletedAt = &productRequest.DeletedAt.Time
+	}
+
+	res := dto.CreateProductRequestResponseDTO{
+		Name:     productRequest.Name,
+		Desc:     productRequest.Desc,
+		Images:   productRequest.Images,
+		Budget:   productRequest.Budget,
+		Quantity: productRequest.Quantity,
+		Category: productRequest.Category,
+
+		UserID: productRequest.UserID,
+		User:   productRequest.User,
+		Offers: productRequest.Offers,
+
+		CreatedAt: productRequest.CreatedAt,
+		UpdatedAt: productRequest.UpdatedAt,
+		DeletedAt: deletedAt,
+	}
+
 	return c.JSON(fiber.Map{
 		"message":         "Product request created sucessfully",
-		"product-request": productRequest,
+		"product-request": res,
 	})
 }

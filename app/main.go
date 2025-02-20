@@ -31,12 +31,15 @@ func main() {
 	userRepo := gorm.NewUserGormRepository(db)
 	userUsecase := usecase.NewUserUsecase(userRepo)
 
-	authUsecase := usecase.NewAuthUsecase(userRepo, &oauthRepoFactory, &cfg)
+	authUsecase := usecase.NewAuthUsecase(userRepo, &oauthRepoFactory, &cfg, minioRepo, ctx)
 	authHandler := rest.NewAuthHandler(authUsecase)
 
 	productRequestRepo := gorm.NewProductRequestGormRepo(db)
 	productRequestUsecase := usecase.NewProductRequestService(productRequestRepo, minioRepo, ctx)
 	productRequestHandler := rest.NewProductRequestHandler(productRequestUsecase)
+
+	verifcationUsecase := usecase.NewVerificationService(minioRepo, ctx, cfg, userRepo)
+	verifcationHandler := rest.NewVerificationHandler(verifcationUsecase)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("hewpao is running 🚀")
@@ -57,6 +60,11 @@ func main() {
 
 	productRequestRoute := app.Group("/productRequests")
 	productRequestRoute.Post("/", productRequestHandler.CreateProductRequest)
+
+	verifyRoute := app.Group("/verify")
+	verifyRoute.Post("/", verifcationHandler.VerifyWithKYC)
+	verifyRoute.Get("/:email", verifcationHandler.GetVerificationInfo)
+	verifyRoute.Post("/set/:email", verifcationHandler.UpdateVerificationInfo)
 
 	app.Listen(":9090")
 }

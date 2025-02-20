@@ -8,6 +8,6 @@ type Offer struct {
 	gorm.Model
 	ProductRequestID *uint
 	ProductRequest   *ProductRequest
-	UserID           *string
+	UserID           string `gorm:"not null"`
 	User             *User
 }

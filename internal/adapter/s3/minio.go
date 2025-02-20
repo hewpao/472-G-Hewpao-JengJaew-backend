@@ -24,7 +24,7 @@ func ProvideMinIOS3Repository(client *minio.Client, cfg *config.Config) reposito
 	}
 }
 
-func (r *MinIOS3RepositoryImpl) UploadFile(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) (minio.UploadInfo, error) {
+func (r *MinIOS3RepositoryImpl) UploadFile(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string, folder string) (minio.UploadInfo, error) {
 	limitSize, err := strconv.ParseInt(r.cfg.FileUploadSizeLimitMB, 0, 64)
 	if err != nil {
 		return minio.UploadInfo{}, exception.ErrTypeConversion
@@ -38,7 +38,7 @@ func (r *MinIOS3RepositoryImpl) UploadFile(ctx context.Context, objectName strin
 		return minio.UploadInfo{}, exception.ErrFileAlreadyExists
 	}
 
-	objectName = uuid.New().String() + "_" + objectName
+	objectName = folder + "/" + uuid.New().String() + "_" + objectName
 
 	uploadInfo, err := r.client.PutObject(ctx, r.cfg.S3BucketName, objectName, reader, size, minio.PutObjectOptions{
 		ContentType: contentType,

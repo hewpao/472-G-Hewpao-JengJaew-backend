@@ -31,9 +31,9 @@ func NewProductRequestService(repo repository.ProductRequestRepository, minioRep
 func (pr *productRequestService) CreateProductRequest(productRequest *domain.ProductRequest, files []*multipart.FileHeader, readers []io.Reader) error {
 	uploadInfos := []minio.UploadInfo{}
 	for i, file := range files {
-		reader := readers[i] // Get the corresponding reader for this file
+		reader := readers[i]
 
-		uploadInfo, err := pr.minioRepo.UploadFile(pr.ctx, file.Filename, reader, file.Size, file.Header.Get("Content-Type"))
+		uploadInfo, err := pr.minioRepo.UploadFile(pr.ctx, file.Filename, reader, file.Size, file.Header.Get("Content-Type"), "product-request-images")
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,16 @@ func (pr *productRequestService) CreateProductRequest(productRequest *domain.Pro
 		uploadInfos = append(uploadInfos, uploadInfo)
 	}
 
-	err := pr.repo.Create(productRequest, uploadInfos)
+	uris := []string{}
+
+	for _, uploadInfo := range uploadInfos {
+		uri := uploadInfo.Bucket + "/" + uploadInfo.Key
+		uris = append(uris, uri)
+	}
+
+	productRequest.Images = uris
+
+	err := pr.repo.Create(productRequest)
 	if err != nil {
 		return err
 	}
