@@ -81,10 +81,10 @@ func main() {
 
 	offerRoute := app.Group("/offers", middleware.AuthMiddleware(&cfg))
 	offerRoute.Post("/", offerHandler.CreateOffer)
+
 	transactionRoute := app.Group("/transactions", middleware.AuthMiddleware(&cfg))
 	transactionRoute.Post("/", transactionHandler.CreateTransaction)
 	transactionRoute.Get("/:id", transactionHandler.GetTransactionByID)
-	
 
 	app.Listen(":9090")
 }
