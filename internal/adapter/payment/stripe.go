@@ -50,6 +50,7 @@ func (r *StripePaymentRepository) CreatePayment(ctx context.Context, pr *domain.
 	}
 
 	res := &dto.CreatePaymentResponseDTO{
+		PaymentID:  result.ID,
 		PaymentURL: result.URL,
 		CreatedAt:  result.Created,
 		ExpiredAt:  result.ExpiresAt,

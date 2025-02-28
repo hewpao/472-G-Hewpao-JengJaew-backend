@@ -2,6 +2,7 @@ package gorm
 
 import (
 	"context"
+
 	"github.com/hewpao/hewpao-backend/domain"
 	"gorm.io/gorm"
 )
@@ -25,4 +26,3 @@ func (r *TransactionRepository) FindByID(ctx context.Context, id string) (*domai
 	}
 	return &transaction, nil
 }
-

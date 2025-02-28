@@ -32,7 +32,7 @@ func (pr *ProductRequestGormRepo) Create(productRequest *domain.ProductRequest) 
 
 func (pr *ProductRequestGormRepo) FindByID(id int) (*domain.ProductRequest, error) {
 	var productRequest domain.ProductRequest
-	result := pr.db.Preload("User").Preload("Offers").First(&productRequest, id)
+	result := pr.db.Preload("User").Preload("Offers").Preload("Transactions").First(&productRequest, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -41,7 +41,7 @@ func (pr *ProductRequestGormRepo) FindByID(id int) (*domain.ProductRequest, erro
 
 func (pr *ProductRequestGormRepo) FindByUserID(id string) ([]domain.ProductRequest, error) {
 	var productRequests []domain.ProductRequest
-	result := pr.db.Where("user_id = ?", id).Find(&productRequests)
+	result := pr.db.Preload("User").Preload("Offers").Preload("Transactions").Where("user_id = ?", id).Find(&productRequests)
 	if result.Error != nil {
 		return nil, result.Error
 	}

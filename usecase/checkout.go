@@ -2,10 +2,13 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/hewpao/hewpao-backend/config"
+	"github.com/hewpao/hewpao-backend/domain"
 	"github.com/hewpao/hewpao-backend/dto"
 	"github.com/hewpao/hewpao-backend/repository"
+	"github.com/hewpao/hewpao-backend/types"
 )
 
 type CheckoutUsecase interface {
@@ -51,6 +54,24 @@ func (c *checkoutService) CheckoutWithPaymentGateway(ctx context.Context, userID
 	payment, err := provider.CreatePayment(ctx, productRequest)
 	if err != nil {
 		return nil, err
+	}
+
+	// Create transaction
+	transaction := &domain.Transaction{
+		UserID:              userID,
+		Amount:              productRequest.Budget,
+		Currency:            "THB",
+		Type:                "Income",
+		ThirdPartyPaymentID: &payment.PaymentID,
+		ThirdPartyGateway:   req.PaymentGateway,
+		ProductRequestID:    &productRequest.ID,
+		Status:              types.PaymentPending,
+		CreatedAt:           time.Now(),
+	}
+
+	txErr := c.transactionRepo.Store(ctx, transaction)
+	if txErr != nil {
+		return nil, txErr
 	}
 
 	res := &dto.CheckoutResponseDTO{
