@@ -23,6 +23,7 @@ type Config struct {
 	S3SecretAccessKey     string
 	S3UseSSL              bool
 	StripeSecretKey       string
+	StripeWebhookSecret   string
 }
 
 func NewConfig() (config Config) {
@@ -46,6 +47,7 @@ func NewConfig() (config Config) {
 		S3SecretAccessKey:     getEnv("S3_SECRET_ACCESS_KEY"),
 		S3UseSSL:              true,
 		StripeSecretKey:       getEnv("STRIPE_SECRET_KEY"),
+		StripeWebhookSecret:   getEnv("STRIPE_WEBHOOK_SECRET"),
 	}
 	return
 }

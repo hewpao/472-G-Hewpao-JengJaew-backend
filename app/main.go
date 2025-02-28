@@ -11,6 +11,7 @@ import (
 	"github.com/hewpao/hewpao-backend/internal/adapter/oauth"
 	"github.com/hewpao/hewpao-backend/internal/adapter/payment"
 	"github.com/hewpao/hewpao-backend/internal/adapter/rest"
+	"github.com/hewpao/hewpao-backend/internal/adapter/rest/webhook"
 	"github.com/hewpao/hewpao-backend/internal/adapter/s3"
 	"github.com/hewpao/hewpao-backend/repository"
 	"github.com/hewpao/hewpao-backend/usecase"
@@ -57,6 +58,8 @@ func main() {
 	checkoutUsecase := usecase.NewCheckoutUsecase(userRepo, productRequestRepo, transactionRepo, &paymentRepoFactory, &cfg, minioRepo, ctx)
 	checkoutHandler := rest.NewCheckoutHandler(checkoutUsecase)
 
+	stripeWebhookHandler := webhook.NewStripeWebhookHandler(&cfg, checkoutUsecase)
+
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("hewpao is running 🚀")
 	})
@@ -96,6 +99,11 @@ func main() {
 
 	checkoutRoute := app.Group("/checkout", middleware.AuthMiddleware(&cfg))
 	checkoutRoute.Post("/gateway", checkoutHandler.CheckoutWithPaymentGateway)
+
+	// Webhook route
+	webhookRoute := app.Group("/webhook")
+	stripeWebhookRoute := webhookRoute.Group("/stripe")
+	stripeWebhookRoute.Post("/", stripeWebhookHandler.WebhookPost)
 
 	app.Listen(":9090")
 }

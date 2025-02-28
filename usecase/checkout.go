@@ -13,6 +13,7 @@ import (
 
 type CheckoutUsecase interface {
 	CheckoutWithPaymentGateway(ctx context.Context, userID string, req *dto.CheckoutRequestDTO) (*dto.CheckoutResponseDTO, error)
+	UpdateTransactionStatus(ctx context.Context, transactionID string, status types.PaymentStatus) error
 }
 
 type checkoutService struct {
@@ -79,4 +80,8 @@ func (c *checkoutService) CheckoutWithPaymentGateway(ctx context.Context, userID
 	}
 
 	return res, nil
+}
+
+func (c *checkoutService) UpdateTransactionStatus(ctx context.Context, thirdPartyPaymentID string, status types.PaymentStatus) error {
+	return c.transactionRepo.UpdateStatusByThirdPartyPaymentID(ctx, thirdPartyPaymentID, status)
 }
