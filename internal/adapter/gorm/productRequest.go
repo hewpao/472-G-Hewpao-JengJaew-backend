@@ -59,3 +59,12 @@ func (pr *ProductRequestGormRepo) FindPaginatedProductRequests(page, limit int) 
 	pr.db.Model(&domain.ProductRequest{}).Count(&total)
 	return productRequests, total, nil
 }
+
+func (pr *ProductRequestGormRepo) IsOwnedByUser(prID int, userID string) (bool, error) {
+	var count int64
+	result := pr.db.Model(&domain.ProductRequest{}).Where("id = ? AND user_id = ?", prID, userID).Count(&count)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return count > 0, nil
+}
