@@ -12,7 +12,9 @@ import (
 	"github.com/hewpao/hewpao-backend/internal/adapter/gorm"
 	"github.com/hewpao/hewpao-backend/internal/adapter/middleware"
 	"github.com/hewpao/hewpao-backend/internal/adapter/oauth"
+	"github.com/hewpao/hewpao-backend/internal/adapter/payment"
 	"github.com/hewpao/hewpao-backend/internal/adapter/rest"
+	"github.com/hewpao/hewpao-backend/internal/adapter/rest/webhook"
 	"github.com/hewpao/hewpao-backend/internal/adapter/s3"
 	"github.com/hewpao/hewpao-backend/repository"
 	"github.com/hewpao/hewpao-backend/usecase"
@@ -32,6 +34,9 @@ func main() {
 
 	oauthRepoFactory := repository.NewOAuthRepositoryFactory()
 	oauthRepoFactory.Register("google", oauth.NewGoogleOAuthRepository(&cfg))
+
+	paymentRepoFactory := repository.NewPaymentRepositoryFactory()
+	paymentRepoFactory.Register("stripe", payment.NewStripePaymentRepository(&cfg))
 
 	minioRepo := s3.ProvideMinIOS3Repository(minio, &cfg)
 
@@ -61,6 +66,11 @@ func main() {
 
 	offerUsecase := usecase.NewOfferService(offerRepo, productRequestRepo, userRepo, ctx)
 	offerHandler := rest.NewOfferHandler(offerUsecase)
+
+	checkoutUsecase := usecase.NewCheckoutUsecase(userRepo, productRequestRepo, transactionRepo, &paymentRepoFactory, &cfg, minioRepo, ctx)
+	checkoutHandler := rest.NewCheckoutHandler(checkoutUsecase)
+
+	stripeWebhookHandler := webhook.NewStripeWebhookHandler(&cfg, checkoutUsecase)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("hewpao is running 🚀")
@@ -98,6 +108,14 @@ func main() {
 	transactionRoute := app.Group("/transactions", middleware.AuthMiddleware(&cfg))
 	transactionRoute.Post("/", transactionHandler.CreateTransaction)
 	transactionRoute.Get("/:id", transactionHandler.GetTransactionByID)
+
+	checkoutRoute := app.Group("/checkout", middleware.AuthMiddleware(&cfg))
+	checkoutRoute.Post("/gateway", checkoutHandler.CheckoutWithPaymentGateway)
+
+	// Webhook route
+	webhookRoute := app.Group("/webhook")
+	stripeWebhookRoute := webhookRoute.Group("/stripe")
+	stripeWebhookRoute.Post("/", stripeWebhookHandler.WebhookPost)
 
 	app.Listen(":9090")
 }

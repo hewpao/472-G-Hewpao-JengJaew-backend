@@ -27,6 +27,9 @@ type Config struct {
 	EmailPort     string
 	EmailUser     string
 	EmailPassword string
+
+	StripeSecretKey       string
+	StripeWebhookSecret   string
 }
 
 func NewConfig() (config Config) {
@@ -54,6 +57,9 @@ func NewConfig() (config Config) {
 		EmailPort:     getEnv("EMAIL_PORT"),
 		EmailUser:     getEnv("EMAIL_USER"),
 		EmailPassword: getEnv("EMAIL_PASSWORD"),
+
+		StripeSecretKey:       getEnv("STRIPE_SECRET_KEY"),
+		StripeWebhookSecret:   getEnv("STRIPE_WEBHOOK_SECRET"),
 	}
 	return
 }
