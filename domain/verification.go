@@ -4,8 +4,7 @@ import "gorm.io/gorm"
 
 type Verification struct {
 	gorm.Model
-	CardImage         *string
-	BankAccountNumber string
+	CardImage *string
 
 	IDNumber    string `gorm:"unique;not null"`
 	FirstNameTh string
