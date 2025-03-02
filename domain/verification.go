@@ -30,5 +30,5 @@ type Verification struct {
 	Province    string
 	PostalCode  string
 
-	UserID string
+	UserID string `gorm:"unique;not null"`
 }
