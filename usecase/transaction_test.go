@@ -118,14 +118,13 @@ func TestGetTransactionByID(t *testing.T) {
 		mockTransactionRepo.AssertExpectations(t)
 	})
 }
-
 func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 	mockTransactionRepo := new(mock_repos.MockTransactionRepository)
 	transactionService := usecase.NewTransactionService(mockTransactionRepo)
 	ctx := context.Background()
 
 	// Mock transaction data
-	third := "thirdParty_123"
+	third := ("thirdParty_123")
 	expectedTransaction := &domain.Transaction{
 		ID:                  "txn_123",
 		UserID:              "1",
@@ -136,7 +135,7 @@ func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		// Mock repository response
-		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, expectedTransaction.ThirdPartyPaymentID).
+		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, *expectedTransaction.ThirdPartyPaymentID).
 			Return(expectedTransaction, nil).Once()
 
 		// Call the function
@@ -146,7 +145,7 @@ func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, transaction)
 		assert.Equal(t, expectedTransaction.ID, transaction.ID)
-		assert.Equal(t, expectedTransaction.ThirdPartyPaymentID, transaction.ThirdPartyPaymentID)
+		assert.Equal(t, *expectedTransaction.ThirdPartyPaymentID, *transaction.ThirdPartyPaymentID)
 
 		// Verify expectations
 		mockTransactionRepo.AssertExpectations(t)
@@ -154,16 +153,74 @@ func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 
 	t.Run("Error_TransactionNotFound", func(t *testing.T) {
 		// Mock repository response for error case
-		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, "nonexistent_id").
-			Return(nil, errors.New("transaction not found")).Once()
+		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, *expectedTransaction.ThirdPartyPaymentID). // Pass pointer here as well
+															Return(&domain.Transaction{}, errors.New("transaction not found")).Once()
 
 		// Call the function
-		transaction, err := transactionService.GetTransactionByThirdPartyPaymentID(ctx, "nonexistent_id")
+		transaction, err := transactionService.GetTransactionByThirdPartyPaymentID(ctx, *expectedTransaction.ThirdPartyPaymentID)
 
 		// Assertions
 		assert.Error(t, err)
 		assert.Nil(t, transaction)
 		assert.EqualError(t, err, "transaction not found")
+
+		// Verify expectations
+		mockTransactionRepo.AssertExpectations(t)
+	})
+}
+
+func TestGetTransactionsByUserID(t *testing.T) {
+	mockTransactionRepo := new(mock_repos.MockTransactionRepository)
+	transactionService := usecase.NewTransactionService(mockTransactionRepo)
+	ctx := context.Background()
+
+	// Mock transaction data
+	expectedTransactions := []*domain.Transaction{
+		{
+			ID:       "txn_123",
+			UserID:   "1",
+			Amount:   100.0,
+			Currency: "THB",
+		},
+		{
+			ID:       "txn_124",
+			UserID:   "1",
+			Amount:   200.0,
+			Currency: "USD",
+		},
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		// Mock repository response
+		mockTransactionRepo.On("FindByUserID", ctx, "1").
+			Return(expectedTransactions, nil).Once()
+
+		// Call the function
+		transactions, err := transactionService.GetTransactionsByUserID(ctx, "1")
+
+		// Assertions
+		assert.NoError(t, err)
+		assert.NotNil(t, transactions)
+		assert.Len(t, transactions, 2)
+		assert.Equal(t, expectedTransactions[0].ID, transactions[0].ID)
+		assert.Equal(t, expectedTransactions[1].ID, transactions[1].ID)
+
+		// Verify expectations
+		mockTransactionRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error_NoTransactionsFound", func(t *testing.T) {
+		// Mock repository response for error case
+		mockTransactionRepo.On("FindByUserID", ctx, "nonexistent_user").
+			Return([]*domain.Transaction{}, errors.New("no transactions found")).Once()
+
+		// Call the function
+		transactions, err := transactionService.GetTransactionsByUserID(ctx, "nonexistent_user")
+
+		// Assertions
+		assert.Error(t, err)
+		assert.Nil(t, transactions)
+		assert.EqualError(t, err, "no transactions found")
 
 		// Verify expectations
 		mockTransactionRepo.AssertExpectations(t)
