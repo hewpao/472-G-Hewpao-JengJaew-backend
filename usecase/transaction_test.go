@@ -118,6 +118,7 @@ func TestGetTransactionByID(t *testing.T) {
 		mockTransactionRepo.AssertExpectations(t)
 	})
 }
+
 func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 	mockTransactionRepo := new(mock_repos.MockTransactionRepository)
 	transactionService := usecase.NewTransactionService(mockTransactionRepo)
@@ -153,8 +154,8 @@ func TestGetTransactionByThirdPartyPaymentID(t *testing.T) {
 
 	t.Run("Error_TransactionNotFound", func(t *testing.T) {
 		// Mock repository response for error case
-		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, "nonexistent_id"). // Pass pointer here as well
-												Return(&domain.Transaction{}, errors.New("transaction not found")).Once()
+		mockTransactionRepo.On("FindByThirdPartyPaymentID", ctx, "nonexistent_id").
+			Return(&domain.Transaction{}, errors.New("transaction not found")).Once()
 
 		// Call the function
 		transaction, err := transactionService.GetTransactionByThirdPartyPaymentID(ctx, "nonexistent_id")
