@@ -21,13 +21,13 @@ import (
 
 type ProductRequestUsecase interface {
 	CreateProductRequest(productRequest *domain.ProductRequest, files []*multipart.FileHeader, readers []io.Reader) error
-	GetDetailByID(id int) (*dto.DetailOfProductRequestResponseDTO, error)                                                                 // tested
-	GetBuyerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)                                           // tested
-	GetTravelerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)                                        // tested
-	GetPaginatedProductRequests(page, limit int) (*dto.PaginationGetProductRequestResponse[dto.DetailOfProductRequestResponseDTO], error) // tested
-	UpdateProductRequest(req *dto.UpdateProductRequestDTO, prID int, userID string) error                                                 // tested
-	UpdateProductRequestStatus(req *dto.UpdateProductRequestStatusDTO, prID int, userID string) (*domain.ProductRequest, error)           // tested
-	UpdateProductRequestStatusAfterPaid(prID int) error                                                                                   // tested
+	GetDetailByID(id int) (*dto.DetailOfProductRequestResponseDTO, error)
+	GetBuyerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)
+	GetTravelerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)
+	GetPaginatedProductRequests(page, limit int) (*dto.PaginationGetProductRequestResponse[dto.DetailOfProductRequestResponseDTO], error)
+	UpdateProductRequest(req *dto.UpdateProductRequestDTO, prID int, userID string) error
+	UpdateProductRequestStatus(req *dto.UpdateProductRequestStatusDTO, prID int, userID string) (*domain.ProductRequest, error)
+	UpdateProductRequestStatusAfterPaid(prID int) error
 }
 
 type productRequestService struct {
