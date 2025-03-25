@@ -8,22 +8,25 @@ import (
 
 type ProductRequest struct {
 	gorm.Model
-	Name     string
-	Desc     string
-	Images   pq.StringArray `gorm:"type:text[]"`
-	Budget   float64
-	Quantity uint
-	Category types.Category `gorm:"type:varchar(20);default:'Other'"`
+	Name         string
+	Desc         string
+	Images       pq.StringArray `gorm:"type:text[]"`
+	Budget       float64
+	Quantity     uint
+	Category     types.Category `gorm:"type:varchar(20);default:'Other'"`
+	CheckService bool
 
 	UserID *string
 	User   *User
 	Offers []Offer `gorm:"foreignKey:ProductRequestID"`
 
 	SelectedOfferID *uint
-	SelectedOffer   *Offer
 
 	Transactions []Transaction `gorm:"foreignKey:ProductRequestID"`
 
 	DeliveryStatus types.DeliveryStatus `gorm:"type:varchar(20);default:'Opening'"`
-	ChatID uint  `gorm:"unique;not null"`
+	ChatID         uint                 `gorm:"unique;not null"`
+
+	From string
+	To   string
 }

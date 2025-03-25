@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 
@@ -22,9 +23,11 @@ type ProductRequestUsecase interface {
 	CreateProductRequest(productRequest *domain.ProductRequest, files []*multipart.FileHeader, readers []io.Reader) error
 	GetDetailByID(id int) (*dto.DetailOfProductRequestResponseDTO, error)
 	GetBuyerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)
+	GetTravelerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error)
 	GetPaginatedProductRequests(page, limit int) (*dto.PaginationGetProductRequestResponse[dto.DetailOfProductRequestResponseDTO], error)
 	UpdateProductRequest(req *dto.UpdateProductRequestDTO, prID int, userID string) error
 	UpdateProductRequestStatus(req *dto.UpdateProductRequestStatusDTO, prID int, userID string) (*domain.ProductRequest, error)
+	UpdateProductRequestStatusAfterPaid(prID int) error
 }
 
 type productRequestService struct {
@@ -76,21 +79,28 @@ func (pr *productRequestService) UpdateProductRequestStatus(req *dto.UpdateProdu
 				return nil, err
 			}
 
-			if offer.UserID != userID {
-				return nil, exception.ErrPermissionDenied
+			allowedTravelerTransitions := map[types.DeliveryStatus]bool{
+				types.Purchased: true,
+				types.PickedUp:  true,
+				types.Cancel:    true,
 			}
-			if req.DeliveryStatus != types.Purchased {
-				return nil, exception.ErrPermissionDenied
-			}
-			if req.DeliveryStatus != types.Cancel {
+
+			if !allowedTravelerTransitions[req.DeliveryStatus] ||
+				!types.AllowedStatusTransitions[productRequest.DeliveryStatus][req.DeliveryStatus] {
 				return nil, exception.ErrPermissionDenied
 			}
 
-		case false: // buyer > cancel
+		case false: // Buyer: Allowed to transition only to Cancel
 			if *productRequest.UserID != userID {
 				return nil, exception.ErrPermissionDenied
 			}
-			if req.DeliveryStatus != types.Cancel {
+
+			allowedBuyerTransitions := map[types.DeliveryStatus]bool{
+				types.Cancel: true,
+			}
+
+			if !allowedBuyerTransitions[req.DeliveryStatus] ||
+				!types.AllowedStatusTransitions[productRequest.DeliveryStatus][req.DeliveryStatus] {
 				return nil, exception.ErrPermissionDenied
 			}
 		}
@@ -107,6 +117,7 @@ func (pr *productRequestService) UpdateProductRequestStatus(req *dto.UpdateProdu
 }
 
 func (pr *productRequestService) UpdateProductRequest(req *dto.UpdateProductRequestDTO, prID int, userID string) error {
+	fmt.Println(prID, userID)
 	productRequest, err := pr.repo.FindByID(prID)
 	if err != nil {
 		return err
@@ -116,32 +127,38 @@ func (pr *productRequestService) UpdateProductRequest(req *dto.UpdateProductRequ
 		return exception.ErrPermissionDenied
 	}
 
-	offer := new(domain.Offer)
-	offer.ID = req.SelectedOfferID
-	err = pr.offerRepo.GetByID(offer)
-	if err != nil {
-		return err
-	}
+	if req.SelectedOfferID != 0 {
 
-	found := false
-	for _, o := range productRequest.Offers {
-		if o.ID == offer.ID {
-			found = true
-			break
+		offer := new(domain.Offer)
+		offer.ID = req.SelectedOfferID
+		err = pr.offerRepo.GetByID(offer)
+		if err != nil {
+			return err
 		}
-	}
 
-	if !found {
-		return exception.ErrPermissionDenied
+		found := false
+		for _, o := range productRequest.Offers {
+			if o.ID == offer.ID {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return exception.ErrOfferNotFound
+		}
+
 	}
 
 	productRequest.Name = req.Name
 	productRequest.Desc = req.Desc
-	productRequest.Budget = req.Budget
 	productRequest.Category = req.Category
 	productRequest.Quantity = req.Quantity
-	productRequest.SelectedOfferID = &req.SelectedOfferID
-	productRequest.SelectedOffer = offer
+	if req.SelectedOfferID != 0 {
+		productRequest.SelectedOfferID = &req.SelectedOfferID
+	} else {
+		productRequest.SelectedOfferID = nil
+	}
 
 	err = pr.repo.Update(productRequest)
 	if err != nil {
@@ -202,21 +219,67 @@ func (pr *productRequestService) GetDetailByID(id int) (*dto.DetailOfProductRequ
 	}
 
 	res := dto.DetailOfProductRequestResponseDTO{
-		ID:           productRequest.ID,
-		Desc:         productRequest.Desc,
-		Category:     productRequest.Category,
-		Images:       urls,
-		Budget:       productRequest.Budget,
-		Quantity:     productRequest.Quantity,
-		UserID:       productRequest.UserID,
-		Offers:       productRequest.Offers,
-		Transactions: productRequest.Transactions,
-		CreatedAt:    productRequest.CreatedAt,
-		UpdatedAt:    productRequest.UpdatedAt,
-		DeletedAt:    &productRequest.DeletedAt.Time,
+		ID:              productRequest.ID,
+		Name:            productRequest.Name,
+		Desc:            productRequest.Desc,
+		Category:        productRequest.Category,
+		Images:          urls,
+		Budget:          productRequest.Budget,
+		Quantity:        productRequest.Quantity,
+		UserID:          productRequest.UserID,
+		Offers:          productRequest.Offers,
+		To:              productRequest.To,
+		From:            productRequest.From,
+		CheckService:    productRequest.CheckService,
+		Transactions:    productRequest.Transactions,
+		SelectedOfferID: productRequest.SelectedOfferID,
+		DeliveryStatus:  productRequest.DeliveryStatus,
+		CreatedAt:       productRequest.CreatedAt,
+		UpdatedAt:       productRequest.UpdatedAt,
+		DeletedAt:       &productRequest.DeletedAt.Time,
 	}
 
 	return &res, nil
+}
+
+func (pr *productRequestService) GetTravelerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error) {
+	productRequests, err := pr.repo.FindByOfferUserID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []dto.DetailOfProductRequestResponseDTO{}
+
+	for _, productRequest := range productRequests {
+		urls, err := util.GetUrls(pr.minioRepo, pr.ctx, pr.cfg, productRequest.Images)
+		if err != nil {
+			return nil, err
+		}
+
+		productRequestRes := dto.DetailOfProductRequestResponseDTO{
+			ID:              productRequest.ID,
+			Name:            productRequest.Name,
+			Desc:            productRequest.Desc,
+			Category:        productRequest.Category,
+			Images:          urls,
+			Budget:          productRequest.Budget,
+			Quantity:        productRequest.Quantity,
+			UserID:          productRequest.UserID,
+			Offers:          productRequest.Offers,
+			To:              productRequest.To,
+			From:            productRequest.From,
+			CheckService:    productRequest.CheckService,
+			SelectedOfferID: productRequest.SelectedOfferID,
+			DeliveryStatus:  productRequest.DeliveryStatus,
+			CreatedAt:       productRequest.CreatedAt,
+			UpdatedAt:       productRequest.UpdatedAt,
+			DeletedAt:       &productRequest.DeletedAt.Time,
+		}
+
+		res = append(res, productRequestRes)
+	}
+
+	return res, nil
 }
 
 func (pr *productRequestService) GetBuyerProductRequestsByUserID(id string) ([]dto.DetailOfProductRequestResponseDTO, error) {
@@ -234,17 +297,23 @@ func (pr *productRequestService) GetBuyerProductRequestsByUserID(id string) ([]d
 		}
 
 		productRequestRes := dto.DetailOfProductRequestResponseDTO{
-			ID:        productRequest.ID,
-			Desc:      productRequest.Desc,
-			Category:  productRequest.Category,
-			Images:    urls,
-			Budget:    productRequest.Budget,
-			Quantity:  productRequest.Quantity,
-			UserID:    productRequest.UserID,
-			Offers:    productRequest.Offers,
-			CreatedAt: productRequest.CreatedAt,
-			UpdatedAt: productRequest.UpdatedAt,
-			DeletedAt: &productRequest.DeletedAt.Time,
+			ID:              productRequest.ID,
+			Name:            productRequest.Name,
+			Desc:            productRequest.Desc,
+			Category:        productRequest.Category,
+			Images:          urls,
+			Budget:          productRequest.Budget,
+			Quantity:        productRequest.Quantity,
+			UserID:          productRequest.UserID,
+			Offers:          productRequest.Offers,
+			To:              productRequest.To,
+			From:            productRequest.From,
+			CheckService:    productRequest.CheckService,
+			DeliveryStatus:  productRequest.DeliveryStatus,
+			SelectedOfferID: productRequest.SelectedOfferID,
+			CreatedAt:       productRequest.CreatedAt,
+			UpdatedAt:       productRequest.UpdatedAt,
+			DeletedAt:       &productRequest.DeletedAt.Time,
 		}
 
 		res = append(res, productRequestRes)
@@ -269,17 +338,23 @@ func (pr *productRequestService) GetPaginatedProductRequests(page, limit int) (*
 			return nil, err
 		}
 		productRequestRes := dto.DetailOfProductRequestResponseDTO{
-			ID:        productRequest.ID,
-			Desc:      productRequest.Desc,
-			Category:  productRequest.Category,
-			Images:    urls,
-			Budget:    productRequest.Budget,
-			Quantity:  productRequest.Quantity,
-			UserID:    productRequest.UserID,
-			Offers:    productRequest.Offers,
-			CreatedAt: productRequest.CreatedAt,
-			UpdatedAt: productRequest.UpdatedAt,
-			DeletedAt: &productRequest.DeletedAt.Time,
+			ID:              productRequest.ID,
+			Name:            productRequest.Name,
+			Desc:            productRequest.Desc,
+			Category:        productRequest.Category,
+			Images:          urls,
+			Budget:          productRequest.Budget,
+			Quantity:        productRequest.Quantity,
+			UserID:          productRequest.UserID,
+			Offers:          productRequest.Offers,
+			To:              productRequest.To,
+			From:            productRequest.From,
+			CheckService:    productRequest.CheckService,
+			DeliveryStatus:  productRequest.DeliveryStatus,
+			SelectedOfferID: productRequest.SelectedOfferID,
+			CreatedAt:       productRequest.CreatedAt,
+			UpdatedAt:       productRequest.UpdatedAt,
+			DeletedAt:       &productRequest.DeletedAt.Time,
 		}
 		dest = append(dest, productRequestRes)
 	}
@@ -306,6 +381,21 @@ func (pr *productRequestService) CancleProductRequest(prID int, userID string) e
 	}
 
 	err = pr.repo.Delete(productRequest)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pr *productRequestService) UpdateProductRequestStatusAfterPaid(prID int) error {
+	productRequest, err := pr.repo.FindByID(prID)
+	if err != nil {
+		return err
+	}
+
+	productRequest.DeliveryStatus = types.Pending
+	err = pr.repo.Update(productRequest)
 	if err != nil {
 		return err
 	}

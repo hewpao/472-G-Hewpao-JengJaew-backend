@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/hewpao/hewpao-backend/bootstrap"
 	"github.com/hewpao/hewpao-backend/config"
@@ -23,7 +24,7 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-func main() {
+func setup() *fiber.App {
 	app := fiber.New()
 	cfg := config.NewConfig()
 	db := bootstrap.NewDB(&cfg)
@@ -34,6 +35,12 @@ func main() {
 	httpCli := &http.Client{}
 
 	app.Use(logger.New())
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:3000, https://hewpao-fe.peerawitp.me", // Allow requests from the frontend
+		AllowMethods: "GET,POST,PUT,DELETE",                                   // Allow specific HTTP methods
+		AllowHeaders: "Content-Type,Authorization",
+	}))
 
 	offerRepo := gorm.NewOfferGormRepo(db)
 
@@ -47,6 +54,7 @@ func main() {
 
 	userRepo := gorm.NewUserGormRepository(db)
 	userUsecase := usecase.NewUserUsecase(userRepo)
+	userHandler := rest.NewUserHandler(userUsecase)
 
 	notificationRepoFactory := repository.NewNotificationRepositoryFactory()
 	emailRepo, err := notitype.NewEmailNotificationRepo(message, &cfg)
@@ -88,10 +96,10 @@ func main() {
 	offerUsecase := usecase.NewOfferService(offerRepo, productRequestRepo, userRepo, ctx)
 	offerHandler := rest.NewOfferHandler(offerUsecase)
 
-	checkoutUsecase := usecase.NewCheckoutUsecase(userRepo, productRequestRepo, transactionRepo, &paymentRepoFactory, &cfg, minioRepo, ctx)
+	checkoutUsecase := usecase.NewCheckoutUsecase(userRepo, productRequestRepo, transactionRepo, paymentRepoFactory, &cfg, minioRepo, ctx)
 	checkoutHandler := rest.NewCheckoutHandler(checkoutUsecase)
 
-	stripeWebhookHandler := webhook.NewStripeWebhookHandler(&cfg, checkoutUsecase)
+	stripeWebhookHandler := webhook.NewStripeWebhookHandler(&cfg, checkoutUsecase, transactionUsecase, productRequestUsecase)
 
 	messageRepo := gorm.NewMessageGormRepo(db)
 	messageUsecase := usecase.NewMessageService(messageRepo)
@@ -120,6 +128,10 @@ func main() {
 	authRoute.Post("/login/oauth", authHandler.LoginWithOAuth)
 	authRoute.Post("/register", authHandler.Register)
 
+	userRoute := app.Group("/profile", middleware.AuthMiddleware(&cfg))
+	userRoute.Get("/me", userHandler.GetMyProfile)
+	userRoute.Put("/edit", userHandler.EditMyProfile)
+
 	productRequestRoute := app.Group("/product-requests", middleware.AuthMiddleware(&cfg))
 	productRequestRoute.Post("/", productRequestHandler.CreateProductRequest)
 	productRequestRoute.Put("/:id", productRequestHandler.UpdateProductRequest)
@@ -127,6 +139,7 @@ func main() {
 	productRequestRoute.Get("/get", productRequestHandler.GetPaginatedProductRequests)
 	productRequestRoute.Get("/get/:id", productRequestHandler.GetDetailByID)
 	productRequestRoute.Get("/get-buyer", productRequestHandler.GetBuyerProductRequestsByUserID)
+	productRequestRoute.Get("/get-traveler", productRequestHandler.GetTravelerProductRequestsByUserID)
 
 	verifyRoute := app.Group("/verify", middleware.AuthMiddleware(&cfg))
 	verifyRoute.Post("/", verifcationHandler.VerifyWithKYC)
@@ -135,10 +148,12 @@ func main() {
 
 	offerRoute := app.Group("/offers", middleware.AuthMiddleware(&cfg))
 	offerRoute.Post("/", offerHandler.CreateOffer)
+	offerRoute.Get("/get/:id", offerHandler.GetOfferDetailByOfferID)
 
 	transactionRoute := app.Group("/transactions", middleware.AuthMiddleware(&cfg))
 	transactionRoute.Post("/", transactionHandler.CreateTransaction)
-	transactionRoute.Get("/:id", transactionHandler.GetTransactionByID)
+	transactionRoute.Get("/get-user-tx", transactionHandler.GetTransactionByUserID)
+	transactionRoute.Get("/get/:id", transactionHandler.GetTransactionByID)
 
 	checkoutRoute := app.Group("/checkout", middleware.AuthMiddleware(&cfg))
 	checkoutRoute.Post("/gateway", checkoutHandler.CheckoutWithPaymentGateway)
@@ -157,7 +172,14 @@ func main() {
 	chatRoute.Post("/create", chatHandler.CreateChat)
 
 	messageRoute := app.Group("/message")
+	messageRoute.Get("/:chat_id", messageHandler.GetByChatID)
+	messageRoute.Get("/message/:id", messageHandler.GetByID)
 	messageRoute.Post("/create", messageHandler.CreateMessage)
 
+	return app
+}
+
+func main() {
+	app := setup()
 	app.Listen(":9090")
 }

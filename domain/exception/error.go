@@ -17,9 +17,13 @@ var (
 	ErrPermissionDenied     = errors.New("no permssion")
 	ErrParamsMissing        = errors.New("some params are missing")
 	ErrCouldNotUpdateStatus = errors.New("could not update status yet")
+	ErrJWTSecretIsEmpty     = errors.New("jwt secret is empty")
 
 	ErrProductRequestAlreadyPaid = errors.New("product request already paid")
 
 	ErrDuplicateTravelerPayoutAccount = errors.New("duplicate traveler payout account")
 	ErrBankNotFound                   = errors.New("bank not found")
+
+	ErrOfferNotFound     = errors.New("offer not found")
+	ErrCouldNotSelfOffer = errors.New("could not commit self offering")
 )
